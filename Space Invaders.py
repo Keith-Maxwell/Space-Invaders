@@ -167,6 +167,9 @@ def collide(obj1, obj2):
 class scoreboard:
     def __init__(self):
         self.score = 0
+        f = open('scores.txt', 'w+')
+        f.write('0\n')
+        f.close()
 
     def high_score_read(self):
         with open('scores.txt', 'r+') as f:
