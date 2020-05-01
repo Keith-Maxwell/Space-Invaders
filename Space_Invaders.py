@@ -26,6 +26,9 @@ BLUE_LASER = pygame.image.load(os.path.join('assets', 'pixel_laser_blue.png'))
 GREEN_LASER = pygame.image.load(os.path.join('assets', 'pixel_laser_green.png'))
 YELLOW_LASER = pygame.image.load(os.path.join('assets', 'pixel_laser_yellow.png'))
 
+# Bonus
+BONUS_IMG = pygame.image.load(os.path.join('assets', 'bonus_green_cross .png'))
+
 # Background
 BACKGROUND = pygame.transform.scale(pygame.image.load(os.path.join('assets', 'background-black.png')), (WIDTH, HEIGHT))
 
@@ -107,7 +110,7 @@ class Player(Ship):
             else:
                 for obj in objects:
                     if laser.collision(obj):
-                        scb.point(obj)
+                        scb.enemy_destroyed(obj)
                         objects.remove(obj)
                         EXPLOSION_SOUND.play()
                         if laser in self.lasers:
@@ -169,6 +172,11 @@ class Laser:
         return collide(self, obj)
 
 
+class Bonus(Laser):
+    def __init__(self, x, y, img):
+        super().__init__(x, y, img)
+
+
 def collide(obj1, obj2):
     offset_x = obj2.x - obj1.x
     offset_y = obj2.y - obj1.y
@@ -178,21 +186,27 @@ def collide(obj1, obj2):
 class scoreboard:
     def __init__(self):
         self.score = 0
-        f = open('scores.txt', 'w+')
-        f.write('0\n')
+        f = open('scores.txt', 'a+')
+
         f.close()
 
     def high_score_read(self):
         with open('scores.txt', 'r+') as f:
-            lst = f.read().splitlines()
-            return max(lst)
+            try:
+                lst = f.read().splitlines()
+                return max(lst)
+            except ValueError:
+                return 0
 
     def write(self):
-        with open('scores.txt', 'a') as f:
+        with open('scores.txt', 'a+') as f:
             f.write(str(self.score)+'\n')
 
-    def point(self, obj):
+    def enemy_destroyed(self, obj):
         self.score += int(100 * (HEIGHT - obj.y) / HEIGHT)
+
+    def bonus_picked(self):
+        self.score += 200
 
 
 def main():
@@ -208,9 +222,12 @@ def main():
     player_velocity = 5
     enemy_velocity = 2 + level
     laser_velocity = 10
+    bonus_velocity = 3
+
     player = Player(300, 630)
 
     enemies = []
+    bonuses = []
     wave_lenght = 3
 
     lost = False
@@ -235,6 +252,9 @@ def main():
 
         for enemy in enemies:  # draw every enemy in the list of enemies
             enemy.draw(WINDOW)  # inherited function from class Ship
+
+        for bonus in bonuses:
+            bonus.draw(WINDOW)
 
         player.draw(WINDOW)  # inherited function from class Ship
 
@@ -271,6 +291,9 @@ def main():
                               random.choice(
                                   ['red', 'blue', 'green']), 10)  # Spawn enemies randomly outside of the screen
                 enemies.append(enemy)
+            if level > 1:
+                bonus = Bonus(random.randrange(25, WIDTH-50), random.randrange(-100, 0), BONUS_IMG)
+                bonuses.append(bonus)
 
         for event in pygame.event.get():  # gets all the possible events happening in the window
             if event.type == pygame.QUIT:
@@ -297,7 +320,7 @@ def main():
 
             if collide(enemy, player):
                 player.health -= 25
-                score.point(enemy)
+                score.enemy_destroyed(enemy)
                 EXPLOSION_SOUND.play()
                 enemies.remove(enemy)
 
@@ -305,6 +328,16 @@ def main():
                 lives -= 1
                 LIFE_LOST_SOUND.play()
                 enemies.remove(enemy)
+
+        for bonus in bonuses[:]:
+            bonus.move(bonus_velocity)
+            if collide(bonus, player):
+                score.bonus_picked()
+                bonuses.remove(bonus)
+                if player.health <= 75:
+                    player.health += 25
+            elif bonus.y > HEIGHT:
+                bonuses.remove(bonus)
 
         player.move_lasers(-laser_velocity, enemies, score)
 
